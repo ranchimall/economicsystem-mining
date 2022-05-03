@@ -8,9 +8,7 @@
     <link rel="stylesheet" href="css/main.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&family=Roboto+Mono&family=Roboto:wght@400;500;700&display=swap"
-        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&family=Roboto+Mono&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 
 <body data-theme="light" class="hide" onload="onLoadStartUp()">
@@ -554,11 +552,11 @@
             rates = await floExchangeAPI.getRates();
             update_element(
                 "flobnb-price",
-                formatAmount(parseFloat(rates['flobnb']))
+                formatAmount(parseFloat(rates['mining']))
             );
             update_element(
                 "flobnb-price-userpage",
-                formatAmount(parseFloat(rates['flobnb']))
+                formatAmount(parseFloat(rates['mining']))
             );
             update_element(
                 "total-amount-issued",
@@ -566,27 +564,15 @@
             );
             update_element(
                 "total-tokens-issued",
-                `${localStorage.getItem("total_tokens")} flobnb#`
+                `${localStorage.getItem("total_tokens")} mining#`
             );
             update_element(
                 "total-customer-tokens",
-                `${localStorage.getItem("consumer_split")} flobnb#`
-            );
-            update_element(
-                "total-producer-tokens",
-                `${localStorage.getItem("producer_split")} flobnb#`
-            );
-            update_element(
-                "total-investor-tokens",
-                `${localStorage.getItem("investor_split")} flobnb#`
-            );
-            update_element(
-                "total-referrer-tokens",
-                `${localStorage.getItem("referrer_split")} flobnb#`
+                `${localStorage.getItem("consumer_split")} mining#`
             );
             update_element(
                 "total-technology-provider-tokens",
-                `${localStorage.getItem("technology_provider_split")} flobnb#`
+                `${localStorage.getItem("technology_provider_split")} mining#`
             );
         }
 
@@ -672,18 +658,18 @@
 
         function update_user_ui_data() {
             // User Info
-            let promise1 = floExchangeAPI.getBalance(myFloID, "flobnb");
-            let promise2 = fetch(`https://ranchimallflo.duckdns.org/api/v1.0/getFloAddressBalance?floAddress=${myFloID}&token=flobnb`);
+            let promise1 = floExchangeAPI.getBalance(myFloID, "mining");
+            let promise2 = fetch(`https://ranchimallflo.duckdns.org/api/v1.0/getFloAddressBalance?floAddress=${myFloID}&token=mining`);
             let promise3 = floExchangeAPI.getRates();
 
             Promise.all([promise1, promise2, promise3]).then((results) => {
-                update_element("exchange-flobnb-balance", `${parseFloat(results[0].balance)} flobnb#`);
+                update_element("exchange-flobnb-balance", `${parseFloat(results[0].balance)} mining#`);
                 results[1].json().then((blockchain_data) => {
                     if (blockchain_data["balance"] == null)
                         blockchain_data["balance"] = 0;
-                    update_element("blockchain-flobnb-balance", `${parseFloat(blockchain_data["balance"])} flobnb#`);
-                    update_element("total-flobnb-balance", `${parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)} flobnb#`);
-                    update_element("total-flobnb-valuation", formatAmount((parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)) * parseFloat(results[2].flobnb)));
+                    update_element("blockchain-flobnb-balance", `${parseFloat(blockchain_data["balance"])} mining#`);
+                    update_element("total-flobnb-balance", `${parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)} mining#`);
+                    update_element("total-flobnb-valuation", formatAmount((parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)) * parseFloat(results[2].mining)));
                 });
             });
 
@@ -691,18 +677,6 @@
             let [floid_balances, floid_transactions] = find_balances_txs_floid(myFloID);
 
             update_element("total-consumertoken-balance", floid_balances["consumer_amt"]);
-            update_element(
-                "total-propertytoken-balance",
-                `${floid_balances["property_amt"]} flobnb#`
-            );
-            update_element(
-                "total-investortoken-balance",
-                `${floid_balances["investor_amt"]} flobnb#`
-            );
-            update_element(
-                "total-referrertoken-balance",
-                `${floid_balances["referrer_amt"]} flobnb#`
-            );
 
             render_user_transactions(floid_transactions);
         }
@@ -718,13 +692,7 @@
                         console.log("CALLBACK");
                         if (e) return;
                         let consumer_split =
-                            parseFloat(localStorage.getItem("consumer_split")) || 0,
-                            producer_split =
-                                parseFloat(localStorage.getItem("producer_split")) || 0,
-                            investor_split =
-                                parseFloat(localStorage.getItem("investor_split")) || 0,
-                            referrer_split =
-                                parseFloat(localStorage.getItem("referrer_split")) || 0,
+                                parseFloat(localStorage.getItem("consumer_split")) || 0,
                             technology_provider_split =
                                 parseFloat(localStorage.getItem("technology_provider_split")) || 0,
                             total_amount =
@@ -734,18 +702,12 @@
 
                         for (let v in d) {
                             consumer_split += d[v].message.consumer_split;
-                            producer_split += d[v].message.producer_split;
-                            investor_split += d[v].message.investor_split;
-                            referrer_split += d[v].message.referrer_split;
                             technology_provider_split += d[v].message.technology_provider_split;
                             total_amount += d[v].message.consumer_amount;
                             total_tokens += d[v].message.consumer_split + d[v].message.producer_split + d[v].message.investor_split + d[v].message.referrer_split + d[v].message.technology_provider_split;
                         }
 
                         localStorage.setItem("consumer_split", consumer_split);
-                        localStorage.setItem("producer_split", producer_split);
-                        localStorage.setItem("investor_split", investor_split);
-                        localStorage.setItem("referrer_split", referrer_split);
                         localStorage.setItem("technology_provider_split", technology_provider_split);
                         localStorage.setItem("total_amount", total_amount);
                         localStorage.setItem("total_tokens", total_tokens);
@@ -794,8 +756,6 @@
             getRef('tx-popup-txid').value = txid;
 
         }
-
-
 
         function generateCredentials() {
             const animOptions = {
@@ -1211,9 +1171,11 @@
 
                 // Check if subadmin 
                 if (floGlobals.subAdmins.includes(myFloID)) {
+                    console.log('This is a subadmin')
                     document.getElementById('subadmin-nav').classList.remove('hide')
                 }
 
+                /*
                 getRef('user-tx-section').addEventListener('click', event => {
                     if (event.target.closest(".transaction-card")) {
                         const vectorclock = event.target.closest(".transaction-card").dataset.vectorclock
@@ -1223,11 +1185,12 @@
                         showPopup('tx_popup')
                     }
                 })
+                */
 
                 // Show userinfo 
                 document.getElementById('userinfo-nav').classList.remove('hide')
                 document.getElementById('userinfo-nav').click()
-                update_user_ui_data()
+                update_user_ui_data() 
 
                 //App functions....
 
