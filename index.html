@@ -676,9 +676,9 @@
             // Token split Info
             let [floid_balances, floid_transactions] = find_balances_txs_floid(myFloID);
 
-            update_element("total-consumertoken-balance", floid_balances["consumer_amt"]);
+            //update_element("total-consumertoken-balance", floid_balances["consumer_amt"]);
 
-            render_user_transactions(floid_transactions);
+            //render_user_transactions(floid_transactions);
         }
 
         function load_overview_data() {
@@ -986,8 +986,6 @@
         function find_balances_txs_floid(floID) {
             let floid_balances = {
                 consumer_amt: 0,
-                property_amt: 0,
-                investor_amt: 0,
                 referrer_amt: 0
             };
 
@@ -998,18 +996,6 @@
                 if (floGlobals.generalData[fk][d].message.consumer_floid == floID) {
                     floid_balances["consumer_amt"] +=
                         floGlobals.generalData[fk][d].message.consumer_split;
-                    floid_transactions[d] = floGlobals.generalData[fk][d].message
-                }
-
-                if (floGlobals.generalData[fk][d].message.property_floid == floID) {
-                    floid_balances["property_amt"] +=
-                        floGlobals.generalData[fk][d].message.producer_split;
-                    floid_transactions[d] = floGlobals.generalData[fk][d].message
-                }
-
-                if (floGlobals.generalData[fk][d].message.investor_floid == floID) {
-                    floid_balances["investor_amt"] +=
-                        floGlobals.generalData[fk][d].message.investor_split;
                     floid_transactions[d] = floGlobals.generalData[fk][d].message
                 }
 
@@ -1193,6 +1179,15 @@
                 update_user_ui_data() 
 
                 //App functions....
+
+                fetch('https://miningapitest.duckdns.org/getUsers')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Check if all the user data is present in the cloud object 
+                        console.log('user data')
+                        console.log(data)
+                    })
+                    .catch(error => console.error('Error:', error))
 
 
             }).catch((error) => console.error(error));
