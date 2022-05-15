@@ -347,8 +347,8 @@
 
                 <h2>Approve new Users</h2>
                 <p></p>
-                <div id='approve-newuser-section' class="card-wrapper">
-                </div>
+                <ul id='approve-newuser-section' class="card-wrapper">
+                </ul>
 
                 <h2>Release updated shares</h2>
                 <p></p>
@@ -378,6 +378,12 @@
             <div class="txcard-from-to-date"></div>
             </p>
         </div>
+    </template>
+    <template id="miner-status-entry">
+        <li class='miner-status-entry-cls'>
+            <div class="miner-status-entry-floid"></div> 
+            <sm-switch></sm-switch>
+        </li>
     </template>
 
     <script src="js/main_UI.js"></script>
@@ -528,8 +534,14 @@
                         break;
                 }
                 return clone
-            }
+            },
 
+            minerStatusInfo({ coin_address, is_admin }) {
+                const clone = getRef('miner-status-entry').content.cloneNode(true).firstElementChild;
+                clone.querySelector('.miner-status-entry-floid').textContent = coin_address; 
+                clone.querySelector('sm-switch').setAttribute('checked', is_admin);
+                return clone;
+            }
         }
 
         function update_element(id, value) {
@@ -541,11 +553,11 @@
             rates = await floExchangeAPI.getRates();
             update_element(
                 "flobnb-price",
-                formatAmount(parseFloat(rates['mining']))
+                formatAmount(parseFloat(rates.rates['mining']))
             );
             update_element(
                 "flobnb-price-userpage",
-                formatAmount(parseFloat(rates['mining']))
+                formatAmount(parseFloat(rates.rates['mining']))
             );
             update_element(
                 "total-amount-issued",
@@ -634,7 +646,6 @@
 
         let transactionsLazyLoader
         function render_user_transactions(transaction_dictionary) {
-            const frag = document.createDocumentFragment();
             let arrayOfTransactions = []
             for (let vectorClock in transaction_dictionary) {
                 // do something for each key in the object 
@@ -658,7 +669,7 @@
                         blockchain_data["balance"] = 0;
                     update_element("blockchain-flobnb-balance", `${parseFloat(blockchain_data["balance"])} mining#`);
                     update_element("total-flobnb-balance", `${parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)} mining#`);
-                    update_element("total-flobnb-valuation", formatAmount((parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)) * parseFloat(results[2].mining)));
+                    update_element("total-flobnb-valuation", formatAmount((parseFloat(blockchain_data["balance"]) + parseFloat(results[0].balance)) * parseFloat(results[2].rates.mining)));
                 });
             });
 
@@ -704,8 +715,8 @@
                         update_overview_ui_data();
                     },
                 });
-
-                Promise.all([promise1, promise2])
+                let promise3 = floCloudAPI.requestObjectData("mining_base")
+                Promise.all([promise1, promise2, promise3])
                     .then((r) => resolve(r))
                     .catch((e) => reject(e));
             });
@@ -1140,6 +1151,41 @@
             return await user_shares_details.json()
         }
 
+        function render_miner_status(miner_data){
+            const frag = document.createDocumentFragment();
+            var miner_floIDs = Object.keys(floGlobals.appObjects.mining_base.miners)
+            miner_data.forEach(element => {
+                frag.append(render.minerStatusInfo(element))
+                // check if part of the global object, otherwise add it 
+                if(!miner_floIDs.includes(element.coin_address)){
+                    floGlobals.appObjects.mining_base.miners[element.coin_address] = {
+                        'id': element.coin_id,
+                        'shares': 0,
+                        'username': element.username,
+                        'token_distribution_permission': element.is_admin
+                    }
+                }
+            });
+            document.getElementById("approve-newuser-section").append(frag);
+        }
+
+        function process_mining_shares(miner_shares){
+            var userinfo = await fetch('https://miningapitest.duckdns.org/getUsers')
+            userinfo = await userinfo.json()
+            
+            miner_shares.forEach((share) => {
+                debugger
+                // floGlobals.appObjects.mining_base[userinfo['users'][]]                
+            });
+        }
+
+        async function calculate_share_difference(){
+            // for each line of share api's response
+            var miner_shares = await fetch(`https://miningapitest.duckdns.org/getShares`)
+            miner_shares = await miner_shares.json()
+            process_mining_shares(miner_shares['shares'])
+        }
+
         async function onLoadStartUp() {
             //floDapps.addStartUpFunction('Sample', Promised Function)
             //floDapps.setAppObjectStores({sampleObs1:{}, sampleObs2:{options{autoIncrement:true, keyPath:'SampleKey'}, Indexes:{sampleIndex:{}}}})
@@ -1192,7 +1238,10 @@
                         console.log('user data')
                         console.log(data)
                         let unregistered_floids = find_unregistered_floids(data['users'])
-                        debugger
+                        render_miner_status(unregistered_floids)
+
+                        // Write a function which will calculate the number of shares required 
+                        var share_diff = calculate_share_difference()
                     })
                     .catch(error => console.error('Error:', error))
 
