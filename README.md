@@ -1,4 +1,3 @@
-# Economic System for FLOBNB 
+# Economic System for mining tokens 
 
-Homepage to find all the details related to FLOBnb project
-# economicsystem-mining
+The webpage displays details of the distribution of mining# tokens 

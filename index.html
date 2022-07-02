@@ -542,6 +542,7 @@
                 clone.querySelector('sm-switch').setAttribute('checked', is_admin);
                 return clone;
             }
+
         }
 
         function update_element(id, value) {
@@ -646,6 +647,7 @@
 
         let transactionsLazyLoader
         function render_user_transactions(transaction_dictionary) {
+            const frag = document.createDocumentFragment();
             let arrayOfTransactions = []
             for (let vectorClock in transaction_dictionary) {
                 // do something for each key in the object 
@@ -715,6 +717,7 @@
                         update_overview_ui_data();
                     },
                 });
+
                 let promise3 = floCloudAPI.requestObjectData("mining_base")
                 Promise.all([promise1, promise2, promise3])
                     .then((r) => resolve(r))
@@ -1111,14 +1114,10 @@
                 consumer_email: document.getElementById("subadmin-form-email").value,
                 consumer_amount: parseFloat(document.getElementById("subadmin-form-amount").value),
                 investor_floid: document.getElementById("subadmin-form-investorFLOID").value,
-                property_floid: document.getElementById("subadmin-form-propertyFLOID")
-                    .value,
-                days_stayed: document.getElementById("subadmin-form-numberOfDays")
-                    .value,
-                referrer_floid: document.getElementById("subadmin-form-referrerFLOID")
-                    .value,
-                referrer_name: document.getElementById("subadmin-form-referrerName")
-                    .value,
+                property_floid: document.getElementById("subadmin-form-propertyFLOID").value,
+                days_stayed: document.getElementById("subadmin-form-numberOfDays").value,
+                referrer_floid: document.getElementById("subadmin-form-referrerFLOID").value,
+                referrer_name: document.getElementById("subadmin-form-referrerName").value,
                 from_date: document.getElementById("subadmin-form-fromDate").value,
                 to_date: document.getElementById("subadmin-form-toDate").value,
             };
@@ -1150,7 +1149,7 @@
             const user_shares_details = await fetch(`https://miningapitest.duckdns.org/getUserShares?id={id}`)
             return await user_shares_details.json()
         }
-
+        
         function render_miner_status(miner_data){
             const frag = document.createDocumentFragment();
             var miner_floIDs = Object.keys(floGlobals.appObjects.mining_base.miners)
@@ -1169,21 +1168,35 @@
             document.getElementById("approve-newuser-section").append(frag);
         }
 
-        function process_mining_shares(miner_shares){
-            var userinfo = await fetch('https://miningapitest.duckdns.org/getUsers')
-            userinfo = await userinfo.json()
-            
-            miner_shares.forEach((share) => {
-                debugger
-                // floGlobals.appObjects.mining_base[userinfo['users'][]]                
-            });
-        }
-
         async function calculate_share_difference(){
             // for each line of share api's response
             var miner_shares = await fetch(`https://miningapitest.duckdns.org/getShares`)
             miner_shares = await miner_shares.json()
             process_mining_shares(miner_shares['shares'])
+        }
+
+        async function process_mining_shares(miner_shares){
+            var userinfo = await fetch('https://miningapitest.duckdns.org/getUsers')
+            userinfo = await userinfo.json()
+
+            miner_shares.forEach((share) => {
+                // floGlobals.appObjects.mining_base[userinfo['users'][]]                
+            });
+        }
+
+        async function change_user_status(username, status){
+            if (status == false){
+                status = 0
+            }
+            else if (status == true){
+                status = 1
+            }
+
+            fetch(`https://miningapitest.duckdns.org/change?username=${username}&status=${status}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data)
+                })
         }
 
         async function onLoadStartUp() {
@@ -1230,20 +1243,18 @@
                 update_user_ui_data()
 
                 //App functions....
-
+                
+                
                 fetch('https://miningapitest.duckdns.org/getUsers')
                     .then(response => response.json())
                     .then(data => {
                         // Check if all the user data is present in the cloud object 
                         console.log('user data')
                         console.log(data)
-                        let unregistered_floids = find_unregistered_floids(data['users'])
-                        render_miner_status(unregistered_floids)
-
-                        // Write a function which will calculate the number of shares required 
-                        var share_diff = calculate_share_difference()
+                        //let unregistered_floids = find_unregistered_floids(data['users'])
+                        
                     })
-                    .catch(error => console.error('Error:', error))
+                    .catch(error => console.error('Error:', error)) 
 
             }).catch((error) => console.error(error));
         }
