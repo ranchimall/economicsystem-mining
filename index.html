@@ -342,18 +342,25 @@
 
             <section id="subadmin" class="page hide">
                 <h1 class="page__title">Subadmin</h1>
-                <p>
-                </p>
 
-                <h2>Approve new Users</h2>
-                <p></p>
-                <ul id='approve-newuser-section' class="card-wrapper">
-                </ul>
-
-                <h2>Release updated shares</h2>
-                <p></p>
-                <div id='release-usershares-section' class="card-wrapper">
+                <div class="flex align-center space-between">
+                    <h3>Miners Information</h3>
+                    <sm-button onclick="release_tokens()">Release tokens</sm-button>
                 </div>
+                <p></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FLO ID</th>
+                            <th>Tokens to release</th>
+                            <th>Old tokens</th>
+                            <th>New tokens</th>
+                            <th>Old shares</th>
+                            <th>New shares</th>
+                        </tr>
+                    </thead>
+                    <tbody id="approve_new_users"></tbody>
+                </table>
 
             </section>
         </article>
@@ -379,11 +386,18 @@
             </p>
         </div>
     </template>
-    <template id="miner-status-entry">
-        <li class='miner-status-entry-cls'>
-            <div class="miner-status-entry-floid"></div> 
-            <sm-switch></sm-switch>
-        </li>
+    <template id="miner_status_entry">
+        <tr class='miner-status-entry'>
+            <td class="miner-status-entry-floid"></td> 
+            <td class="tokens-to-release"></td>
+            <td class="old-tokens"></td>
+            <td class="new-tokens"></td>
+            <td class="old-shares"></td>
+            <td class="new-shares"></td>
+            <td>
+                <sm-switch></sm-switch>
+            </td>
+        </tr>
     </template>
 
     <script src="js/main_UI.js"></script>
@@ -536,10 +550,19 @@
                 return clone
             },
 
-            minerStatusInfo({ coin_address, is_admin }) {
-                const clone = getRef('miner-status-entry').content.cloneNode(true).firstElementChild;
-                clone.querySelector('.miner-status-entry-floid').textContent = coin_address; 
-                clone.querySelector('sm-switch').setAttribute('checked', is_admin);
+            minerStatusInfo(miner_data) {
+                let {FLO_ID, pool_acceptance, shares, tokens} = miner_data
+                let {shares:old_shares, tokens:old_tokens} = floGlobals.appObjects.mining_base.miners[FLO_ID]
+                const clone = getRef('miner_status_entry').content.cloneNode(true).firstElementChild;
+                clone.dataset.floId = FLO_ID;
+                clone.querySelector('.miner-status-entry-floid').textContent = FLO_ID; 
+                clone.querySelector('.tokens-to-release').textContent = tokens - old_tokens; 
+                clone.querySelector('.old-tokens').textContent = old_tokens; 
+                clone.querySelector('.new-tokens').textContent = tokens; 
+                clone.querySelector('.old-shares').textContent = old_shares; 
+                clone.querySelector('.new-shares').textContent = shares; 
+                if(pool_acceptance) 
+                clone.querySelector('sm-switch').setAttribute('checked', '');
                 return clone;
             }
 
@@ -849,6 +872,15 @@
             });
         }
 
+        function ascii_to_hex(str){
+            var arr1 = [];
+            for (var n = 0, l = str.length; n < l; n ++) {
+                var hex = Number(str.charCodeAt(n)).toString(16);
+                arr1.push(hex);
+            }
+            return arr1.join('');
+        }
+        
         function range_check(lower_range, upper_range, value) {
             if (lower_range == 0) {
                 var truth_value = value >= lower_range && value <= upper_range;
@@ -1150,54 +1182,112 @@
             return await user_shares_details.json()
         }
         
-        function render_miner_status(miner_data){
+        function render_miner_status(api_miner_data){
+            floGlobals.minersData = api_miner_data;
             const frag = document.createDocumentFragment();
-            var miner_floIDs = Object.keys(floGlobals.appObjects.mining_base.miners)
-            miner_data.forEach(element => {
-                frag.append(render.minerStatusInfo(element))
-                // check if part of the global object, otherwise add it 
-                if(!miner_floIDs.includes(element.coin_address)){
-                    floGlobals.appObjects.mining_base.miners[element.coin_address] = {
-                        'id': element.coin_id,
-                        'shares': 0,
-                        'username': element.username,
-                        'token_distribution_permission': element.is_admin
-                    }
+            for (const key in api_miner_data){
+                frag.append(render.minerStatusInfo(api_miner_data[key]))
+            }
+            document.getElementById("approve_new_users").append(frag);
+        }
+
+        document.getElementById('approve_new_users').addEventListener('change', e => {
+            const allow = e.target.value ? 1: 0; 
+            const floID = e.target.closest('.miner-status-entry').dataset.floId
+            const data = `${floID}${allow}`
+            const signature = floCrypto.signData(data, myPrivKey)
+            fetch(`https://miningapitest.duckdns.org/change?flo_id=${floID}&status=${allow}&signature=${signature}`, { method:"POST"})
+            .then((res) => {
+                console.log(res)
+            })
+            .catch(err => {
+                console.error(err)
+                e.target.value = !allow;
+            })
+        })
+
+        async function initialize_new_users(data){
+            await floCloudAPI.requestObjectData('mining_base')
+            present_users = Object.keys(floGlobals.appObjects.mining_base.miners)
+            Object.keys(data).forEach(function(key){
+                if(!present_users.includes(data[key]['FLO_ID'])){
+                    let { FLO_ID, account_id, pool_acceptance, shares, tokens, username} = data[key]
+                    // update user details 
+                    floGlobals.appObjects.mining_base['miners'][FLO_ID] = {
+                                                                    'account_id': account_id,
+                                                                    'shares':0, 
+                                                                    'tokens':0,
+                                                                    'username':username }
                 }
-            });
-            document.getElementById("approve-newuser-section").append(frag);
+            })
+            await floCloudAPI.updateObjectData("mining_base")
         }
 
-        async function calculate_share_difference(){
-            // for each line of share api's response
-            var miner_shares = await fetch(`https://miningapitest.duckdns.org/getShares`)
-            miner_shares = await miner_shares.json()
-            process_mining_shares(miner_shares['shares'])
+
+        function release_tokens(){
+            getConfirmation('Release the tokens?').then(res => {
+                if(res){
+                    receivers = {}
+                    for(const key in floGlobals.minersData){
+                        const {tokens, FLO_ID, shares} = floGlobals.minersData[key]
+                        let tokens_to_release = tokens - floGlobals.appObjects.mining_base.miners[FLO_ID]['tokens']
+                        console.log(`User ${FLO_ID}`)
+                        console.log(`tokens to release : ${tokens_to_release}`)
+                        // code to release tokens on the RanchiMall Exchange 
+                        if (tokens_to_release != 0){
+                            receivers[FLO_ID] = tokens_to_release
+                        }
+                    }
+
+                    floExchangeAPI
+                        .transferToken(receivers, "mining", myFloID, myPrivKey)
+                        .then((txid) => {
+                            let sensitiveData = {
+                                consumer_name: data.consumer_name,
+                                consumer_upi_address: data.consumer_upi_address,
+                                consumer_email: data.consumer_email,
+                                referrer_name: data.referrer_name,
+                            };
+
+                            let cloudData = {
+                                privacy_data: floCrypto.encryptData(
+                                    JSON.stringify(sensitiveData),
+                                    floGlobals.appObjects["flobnb_base"]["encrypt_key"]
+                                ),
+
+                                consumer_floid: data.consumer_floid,
+                                consumer_amount: data.consumer_amount,
+                                consumer_split: data.consumer_split,
+
+                                investor_floid: data.investor_floid,
+                                investor_split: data.investor_split,
+
+                                property_floid: data.property_floid,
+                                producer_split: data.producer_split,
+
+                                referrer_floid: data.referrer_floid,
+                                referrer_split: data.referrer_split,
+
+                                technology_provider_split: data.technology_provider_split,
+                                flobnb_distributed: flobnb_tokens_tobereleased,
+                                txid: txid,
+
+                                from_date: data.from_date,
+                                to_date: data.to_date,
+                                days_stayed: data.days_stayed,
+                            };
+                            
+                            floCloudAPI
+                                .sendGeneralData(cloudData, "flobnb_data")
+                                .then((result) => resolve(result))
+                                .catch((error) => reject(error)); 
+                            
+                        })
+                        .catch((error) => reject(error)); 
+                }
+            })
         }
 
-        async function process_mining_shares(miner_shares){
-            var userinfo = await fetch('https://miningapitest.duckdns.org/getUsers')
-            userinfo = await userinfo.json()
-
-            miner_shares.forEach((share) => {
-                // floGlobals.appObjects.mining_base[userinfo['users'][]]                
-            });
-        }
-
-        async function change_user_status(username, status){
-            if (status == false){
-                status = 0
-            }
-            else if (status == true){
-                status = 1
-            }
-
-            fetch(`https://miningapitest.duckdns.org/change?username=${username}&status=${status}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data)
-                })
-        }
 
         async function onLoadStartUp() {
             //floDapps.addStartUpFunction('Sample', Promised Function)
@@ -1243,8 +1333,6 @@
                 update_user_ui_data()
 
                 //App functions....
-                
-                
                 fetch('https://miningapitest.duckdns.org/getUsers')
                     .then(response => response.json())
                     .then(data => {
@@ -1252,7 +1340,9 @@
                         console.log('user data')
                         console.log(data)
                         //let unregistered_floids = find_unregistered_floids(data['users'])
-                        
+                        initialize_new_users(data)
+                        // pass the api data to rendering function
+                        render_miner_status(data)
                     })
                     .catch(error => console.error('Error:', error)) 
 
